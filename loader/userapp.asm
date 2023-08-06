@@ -127,7 +127,7 @@ put_char:                                ;显示一个字符
 
 ;-------------------------------------------------------------------------------
   start:
-         ;初始执行时，DS和ES指向用户程序头部段
+         ;初始执行时，ds和es指向用户程序头部段
          mov ax,[stack_segment]           ;设置到用户程序自己的堆栈 
          mov ss,ax
          mov sp,stack_end
@@ -187,8 +187,7 @@ SECTION data_1 align=16 vstart=0
 ;===============================================================================
 SECTION data_2 align=16 vstart=0
 
-    msg1 db '  The above contents is written by LeeChung. '
-         db '2011-05-06'
+    msg1 db 'welcome to the os world!'
          db 0
 
 ;===============================================================================
