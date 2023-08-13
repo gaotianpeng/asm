@@ -10,12 +10,12 @@ SECTION header vstart=0                     ;定义用户程序头部段
 
     ;段重定位表
     code_1_segment  dd section.code_1.start ;[0x0c]
+    data_1_segment  dd section.data_1.start ;[0x14]
 
     header_end:
 
 ;===============================================================================
-SECTION code_1 align=16 vstart=0         ;定义代码段1（16字节对齐）
-        message db '1+2+3+...+100='
+section code_1 align=16 vstart=0         ;定义代码段1（16字节对齐）
     start:
         ; 清屏
         ; 设置AH寄存器为0x00以选择"设置显示模式"子功能
@@ -25,7 +25,7 @@ SECTION code_1 align=16 vstart=0         ;定义代码段1（16字节对齐）
         int 0x10
 
         ; 设置数据段基地址
-        mov ax, cs
+        mov ax, [data_1_segment]
         mov ds, ax
 
         ; 设置附加段基址到显示缓冲区
@@ -33,9 +33,8 @@ SECTION code_1 align=16 vstart=0         ;定义代码段1（16字节对齐）
         mov es, ax
 
         ; 显示字符串
-        mov si, message
+        mov si, 0
         mov di, 0
-        mov cx, start - message
     @g:
         mov al, [si]
         mov [es:di], al
@@ -43,7 +42,8 @@ SECTION code_1 align=16 vstart=0         ;定义代码段1（16字节对齐）
         mov byte [es:di], 0x07
         inc di
         inc si
-        loop @g
+        cmp al, 0
+        jnz @g
 
         ; 计算1到100的和
         xor ax, ax
@@ -82,5 +82,9 @@ SECTION code_1 align=16 vstart=0         ;定义代码段1（16字节对齐）
 
         jmp near $
 
-SECTION trail align=16
+section data_1 align=16 vstart=0
+    message db '1+2+3+...+100='
+            db 0
+
+section trail align=16
 program_end:
