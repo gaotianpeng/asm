@@ -1,6 +1,20 @@
-; 计算 1 + ... + 100 ，并在屏幕上显示
-        jmp near start
+SECTION header vstart=0                     ;定义用户程序头部段
+    program_length  dd program_end          ;程序总长度[0x00]
 
+    ;用户程序入口点
+    code_entry      dw start                ;偏移地址[0x04]
+                    dd section.code_1.start ;段地址[0x06]
+
+    realloc_tbl_len dw (header_end-code_1_segment)/4
+                                            ;段重定位表项个数[0x0a]
+
+    ;段重定位表
+    code_1_segment  dd section.code_1.start ;[0x0c]
+
+    header_end:
+
+;===============================================================================
+SECTION code_1 align=16 vstart=0         ;定义代码段1（16字节对齐）
         message db '1+2+3+...+100='
     start:
         ; 清屏
@@ -11,7 +25,7 @@
         int 0x10
 
         ; 设置数据段基地址
-        mov ax, 0x7c0
+        mov ax, cs
         mov ds, ax
 
         ; 设置附加段基址到显示缓冲区
@@ -68,6 +82,5 @@
 
         jmp near $
 
-
-times 510 - ($ - $$) db 0x00
-db 0x55, 0xaa
+SECTION trail align=16
+program_end:
