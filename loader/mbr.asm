@@ -1,5 +1,6 @@
          app_lba_start equ 2             ; 用户程序起始逻辑扇区号
 
+; 引导程序实际加载的地址是 0000:0x7c00
 SECTION mbr align=16 vstart=0x7c00
         ; 清屏
         mov ah, 0x00
@@ -7,29 +8,77 @@ SECTION mbr align=16 vstart=0x7c00
         int 0x10
 
 
-        ;设置堆栈段和栈指针
+        ;设置堆栈段和栈指针,栈的段地址是0x0000，段的长度是64KB，栈指针将在段内0xffff和0x0000之间变化
         mov ax,0
         mov ss,ax
         mov sp,ax
 
-        mov cx, 0x1000
-        mov ds, cx
-        mov cx, 0xb800
-        mov es, cx
-        ;读取程序的起始部分
-        xor di,di
-        mov si,app_lba_start            ; 程序在硬盘上的起始逻辑扇区号
-        xor bx,bx                       ; 加载到DS:0x0000处(0x1000:0x0000)
-        ; di:si 起始逻辑扇区号
-        ; ds:bx 内存缓存区地址
+        ; 此时，段寄存器均初始化为0
+
+        mov ax, [cs:phy_base]
+        mov dx, [cs:phy_base + 0x02]
+        mov bx, 16
+        div bx                      ; ax商, dx余数
+        mov ds, ax                  ; ds 指向 0x1000
+        mov es, ax                  ; es 指向 0x1000
+
+        ; 读取用户程序起始部分，加载到内存ds:0x0000
+        xor di, di
+        mov si, app_lba_start
+        xor bx, bx
         call read_hard_disk
-        mov ax, [ds:0x00]
-        mov dx, [ds:0x02]
 
-        ; 计算程序段长度，并打印出来
-        call print_app_size
+        ; 判断程序的大小
+        mov dx, [2]
+        mov ax, [0]
+        mov bx, 512
+        div bx
+        cmp dx, 0
+        jnz @1                      ; 不能被512整除
+        dec ax                      ; 能被512整除
+    @1:
+        cmp ax, 0
+        jz direct
 
-        jmp $
+        ; 扇区数>1, 读取第1个扇区之外的其它扇区
+        push ds             ; 保存ds
+
+        mov cx, ax                  ; 将剩余待读取扇区数ax赋值为cx
+    @read_left_app:
+        ; 每次读取一个扇区，重新计算段地址和偏移地址，防止段溢出
+        ; 计算下一个扇区读取到内存的位置,更新段地址ds
+        mov ax, ds
+        add ax, 512
+        mov ds, ax
+
+        ; 每读取,偏移地址始终为 0x0000
+        xor bx, bx
+        inc si
+        call read_hard_disk
+        loop @read_left_app
+
+        pop ds              ; 恢复ds
+    ; 至此，已将用户程序读至内存 0x10000处. 开始重定位用户程序段地址，及跳到用户程序开始执行
+    ; 计算用户代码段的入口地址
+    direct:
+        mov dx, [0x08]      ; 用户程序段地址高16位
+        mov ax, [0x06]      ; 用户程序段地址低16位
+        call calc_segment_base
+        mov [06], ax        ; 回填修正后的入口点代码段基址
+
+    ; 用户程序段重定位
+        mov cx, [0x0a]      ; 取出用户程序段个数
+        mov bx, 0x0c        ; 取出用户程序段表首地址
+
+    realloc:
+        mov dx, [bx + 0x02]
+        mov ax, [bx]
+        call calc_segment_base
+        mov [bx], ax
+        add bx, 4
+        loop realloc
+
+        jmp far [0x04]
 
 
 
@@ -98,46 +147,27 @@ read_hard_disk:                          ; 从硬盘读取一个逻辑扇区
 
              ret
 
-; 打印用户程序的大小
-; 输入 [es:si]  显存段地址
-;      dx:ax   用户程序长度
-; 输出 si
-print_app_size:
-        push ax
-        push bx
-        push cx
-        push dx
+;-------------------------------------------------------------------------------
+; 计算16位段基地址
+; 输入 DX:AX=32位物理地址
+; 输出 AX=16位段基地址
+calc_segment_base:
+            push dx
 
-        xor cx, cx
-        mov bx, 10
-    .push
-        inc cx
-        div bx
-        add dl, 0x30
-        push dx
-        xor dx, dx
-        cmp ax, 0
-        jnz .push
+            ;用户程序段32位，低16位放在ax, 高16位放在dx
+            add ax, [cs:phy_base]            ; 计算低16位
+            adc dx, [cs:phy_base + 0x02]    ; 计算高16位
+            shr ax, 4
+            ror dx, 4
+            and dx, 0xf000
+            or ax, dx
 
-    .pop
-        pop ax
-        mov byte [es:si], al
-        inc si
-        mov byte [es:si], 0x07
-        inc si
-        dec cx
-        cmp cx, 0
-        jnz .pop
+            pop dx
 
-        pop dx
-        pop cx
-        pop bx
-        pop ax
-        ret
+            ret
 
+;-------------------------------------------------------------------------------
 
-
-; ----------------------------------------------------------------------------------------------------------------------
          phy_base dd 0x10000             ;用户程序被加载的物理起始地址
 
  times 510-($-$$) db 0
