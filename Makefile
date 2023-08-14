@@ -60,3 +60,23 @@ bochs0: real
 	fi
 
 
+############## for test
+testapp: ./boot/test.o
+	$(shell rm -rf $(HD_IMG_NAME))
+	bximage -q -hd=16 -func=create -sectsize=512 -imgmode=flat $(HD_IMG_NAME)
+	dd if=${BUILD}/boot/test.o of=hd.img bs=512 seek=0 count=1 conv=notrunc
+${BUILD}/boot/test.o: $(SRC)
+	$(shell mkdir -p ./boot)
+	nasm $< -o $@
+test: testapp
+	@if [ "$(UNAME_S)" = "Linux" ]; then 	\
+		$(LINUX_CMD); 						\
+		bochs -q -f ./bochsrc_linux; 		\
+	elif [ "$(UNAME_S)" = "Darwin" ]; then 	\
+		$(MACOS_CMD); 						\
+		bochs -q -f ./bochsrc_mac;			\
+	else 									\
+		echo "Unsupported platform: $(UNAME_S)"; \
+	fi
+
+
