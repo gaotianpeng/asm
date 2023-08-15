@@ -71,7 +71,7 @@ flush:
     mov edi, core_base_address
     mov eax, core_start_sector
     mov ebx, edi
-    call read_hard_disk                     ; 读取程序的起始部分
+    call read_hard_disk                     ; 读取核心程序的起始部分
 
     ; 判断整个程序有多大
     mov eax, [edi]                          ; 核心程序尺寸
@@ -96,15 +96,17 @@ flush:
     loop @2                         ; 循环读，直到读完整个内核
 
 setup:
+    ; 从标号pgdt处取得GDT的基地址，为其添加描述符，并修改它的大小
+    ; 然后，用lgdt 指令重新加载一遍GDTR寄存器，使修改生效
     mov esi, [0x7c00 + pgdt + 0x02]
 
     ; 建立公用例程段描述符
     mov eax, [edi + 0x04]           ; 公用程序段代码起始汇编地址
     mov ebx, [edi + 0x08]           ; 核心数据段汇编地址
-    sub ebx, eax
-    dec ebx                         ; 公用例程段界限
-    add eax, edi                    ; 公用例程段基地址
-    mov ecx, 0x00409800             ; 字节粒度的代码段描述符
+    sub ebx, eax                    ; 内核数据段的起始位置 - 公共例程段的起始汇编地址
+    dec ebx                         ; 公用例程段界限，段界限在数值上等于：段的长度-1
+    add eax, edi                    ; 公用例程段基地址: 内核的加载地址 + 公共例程段的起始汇编地址
+    mov ecx, 0x00409800             ; 字节粒度的代码段描述符，P=1, G=0, DPL=0, S=1, TYPE=10000
     call make_gdt_descriptor
     mov [esi + 0x28], eax
     mov [esi + 0x2c], edx
@@ -197,12 +199,13 @@ read_hard_disk:
 
 ; ----------------------------------------------------
 ; 构造描述符
-; 输入 eax=线性基地址
-;       ebx=段界限
-;       ecx=属性
-;       返回 edx:eax=完整的描述符
+; input     eax=线性基地址
+;           ebx=段界限
+;           ecx=属性
+; output    edx:eax=完整的描述符
 make_gdt_descriptor:
-        mov edx, eax
+        mov edx, eax            ; 段基址传入 edx
+        ; 构造描述符低32位：描述符低32位中，高16位是基地址，低16位是段界限
         shl eax, 16
         or ax, bx               ; 描述符前32位(eax)构造完毕
 
@@ -218,8 +221,8 @@ make_gdt_descriptor:
         ret
 
 ; ----------------------------------------------------
-    pgdt                    dw 0            ; GDT 的物理地址
-                            dd 0x00007e00
+    pgdt                    dw 0            ; GDT的大小
+                            dd 0x00007e00   ; GDT的物理地址
 ; ----------------------------------------------------
     times 510 - ($ - $$)    db 0x00
                             db 0x55, 0xaa
