@@ -15,6 +15,7 @@ all: ./boot/mbr.o ./boot/core.o ./boot/app.o
 	dd if=${BUILD}/boot/mbr.o of=hd.img bs=512 seek=0 count=1 conv=notrunc
 	dd if=${BUILD}/boot/core.o of=hd.img bs=512 seek=1 count=10 conv=notrunc
 	dd if=${BUILD}/boot/app.o of=hd.img bs=512 seek=50 count=10 conv=notrunc
+	dd if=./diskdata.txt of=hd.img bs=512 seek=100 count=2 conv=notrunc
 
 
 ${BUILD}/boot/%.o: %.asm
