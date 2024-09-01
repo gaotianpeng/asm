@@ -10,7 +10,7 @@ MACOS_CMD = echo "Running on macOS"
 UNAME_S := $(shell uname -s)
 
 real: ${BUILD}/boot/boot.o
-	$(shell rm -rf ${BUILD}$(HD_IMG_NAME))
+	$(shell rm -rf ../hd.img)
 	bximage -q -hd=16 -func=create -sectsize=512 -imgmode=flat $(HD_IMG_NAME)
 	dd if=${BUILD}/boot/boot.o of=hd.img bs=512 seek=0 count=1 conv=notrunc
 
