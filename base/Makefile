@@ -10,7 +10,7 @@ MACOS_CMD = echo "Running on macOS"
 UNAME_S := $(shell uname -s)
 
 real: ${BUILD}/boot/boot.o
-	$(shell rm -rf $(HD_IMG_NAME))
+	$(shell rm -rf ${BUILD}$(HD_IMG_NAME))
 	bximage -q -hd=16 -func=create -sectsize=512 -imgmode=flat $(HD_IMG_NAME)
 	dd if=${BUILD}/boot/boot.o of=hd.img bs=512 seek=0 count=1 conv=notrunc
 
@@ -20,8 +20,8 @@ ${BUILD}/boot/boot.o: mbr.asm
 	nasm $< -o $@
 
 clean:
-	$(shell rm -rf ../boot)
-	$(shell rm -rf ../hd.img)
+	$(shell rm -rf ${BUILD}/boot)
+	$(shell rm -rf ${BUILD}/hd.img)
 	$(shell rm -rf bx_enh_dbg.ini)
 
 
